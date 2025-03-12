@@ -83,8 +83,7 @@ void execute_kernel(const program_t d_progs, const float *data, float *y_pred,
         end--;
       }
 
-      // Outputs stored in col-major format
-      y_pred[pid * n_rows + row_id] = eval_stack[stack_top]; // Final result at top of stack
+      y_pred[pid * n_rows + row_id] = eval_stack[stack_top];
     }
   }
 }
