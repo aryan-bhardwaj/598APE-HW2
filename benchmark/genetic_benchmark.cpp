@@ -154,6 +154,27 @@ void insertionSortPrograms(genetic::program *programs, int size) {
   }
 }
 
+void findTopTwoPrograms(genetic::program *programs, int size, 
+  genetic::program *&best, genetic::program *&second_best) {
+    if (size < 2) return;
+
+    best = &programs[0];
+    second_best = &programs[1];
+
+    if (best->raw_fitness_ > second_best->raw_fitness_) {
+      std::swap(best, second_best);
+    }
+
+    for (int i = 2; i < size; i++) {
+    if (programs[i].raw_fitness_ < best->raw_fitness_) {
+      second_best = best;
+      best = &programs[i];
+    } else if (programs[i].raw_fitness_ < second_best->raw_fitness_) {
+      second_best = &programs[i];
+    }
+  }
+}
+
 void run_symbolic_regression(const std::string &dataset_file) {
   std::cout << "\n===== Symbolic Regression Benchmark =====\n" << std::endl;
 
@@ -245,15 +266,24 @@ void run_symbolic_regression(const std::string &dataset_file) {
   // }
 
   // Predict on top 2 candidates
-  insertionSortPrograms(final_programs, params.population_size);
+  // insertionSortPrograms(final_programs, params.population_size);
+
+  // std::vector<float> y_pred1(X_test.size());
+  // genetic::symRegPredict(X_test_flat.data(), X_test.size(), &final_programs[0],
+  //                        y_pred1.data());
+
+  // std::vector<float> y_pred2(X_test.size());
+  // genetic::symRegPredict(X_test_flat.data(), X_test.size(), &final_programs[1],
+  //                        y_pred2.data());
+  genetic::program* best; 
+  genetic::program* second_best;
+  findTopTwoPrograms(final_programs, params.population_size, best, second_best);
 
   std::vector<float> y_pred1(X_test.size());
-  genetic::symRegPredict(X_test_flat.data(), X_test.size(), &final_programs[0],
-                         y_pred1.data());
+  genetic::symClfPredict(X_test_flat.data(), X_test.size(), params, best, y_pred1.data());
 
   std::vector<float> y_pred2(X_test.size());
-  genetic::symRegPredict(X_test_flat.data(), X_test.size(), &final_programs[1],
-                         y_pred2.data());
+  genetic::symClfPredict(X_test_flat.data(), X_test.size(), params, second_best, y_pred2.data());
 
   // Calculate MSE on test set
   float mse = utils::mean_squared_error(y_test, y_pred1);
@@ -291,6 +321,7 @@ void run_symbolic_regression(const std::string &dataset_file) {
 
   delete[] final_programs;
 }
+
 
 void run_symbolic_classification(const std::string &dataset_file) {
   std::cout << "\n===== Symbolic Classification Benchmark =====\n" << std::endl;
@@ -386,14 +417,24 @@ void run_symbolic_classification(const std::string &dataset_file) {
   // }
 
   // Predict classes for best 2 programs acc to training
-  insertionSortPrograms(final_programs, params.population_size);
+  // insertionSortPrograms(final_programs, params.population_size);
+  // std::vector<float> y_pred1(X_test.size());
+  // genetic::symClfPredict(X_test_flat.data(), X_test.size(), params,
+  //                        &final_programs[0], y_pred1.data());
+
+  // std::vector<float> y_pred2(X_test.size());
+  // genetic::symClfPredict(X_test_flat.data(), X_test.size(), params,
+  //                        &final_programs[1], y_pred2.data());
+
+  genetic::program* best; 
+  genetic::program* second_best;
+  findTopTwoPrograms(final_programs, params.population_size, best, second_best);
+
   std::vector<float> y_pred1(X_test.size());
-  genetic::symClfPredict(X_test_flat.data(), X_test.size(), params,
-                         &final_programs[0], y_pred1.data());
+  genetic::symClfPredict(X_test_flat.data(), X_test.size(), params, best, y_pred1.data());
 
   std::vector<float> y_pred2(X_test.size());
-  genetic::symClfPredict(X_test_flat.data(), X_test.size(), params,
-                         &final_programs[1], y_pred2.data());
+  genetic::symClfPredict(X_test_flat.data(), X_test.size(), params, second_best, y_pred2.data());
 
   float acc = utils::accuracy(y_test, y_pred1);
   float acc2 = utils::accuracy(y_test, y_pred2);
