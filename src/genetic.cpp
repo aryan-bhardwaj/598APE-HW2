@@ -108,28 +108,52 @@ void cpp_evolve(const std::vector<program> &h_oldprogs,
 
   } else {
     // Set mutation type
-    float mut_probs[4];
-    mut_probs[0] = params.p_crossover;
-    mut_probs[1] = params.p_subtree_mutation;
-    mut_probs[2] = params.p_hoist_mutation;
-    mut_probs[3] = params.p_point_mutation;
-    std::partial_sum(mut_probs, mut_probs + 4, mut_probs);
+    // float mut_probs[4];
+    // mut_probs[0] = params.p_crossover;
+    // mut_probs[1] = params.p_subtree_mutation;
+    // mut_probs[2] = params.p_hoist_mutation;
+    // mut_probs[3] = params.p_point_mutation;
+    // std::partial_sum(mut_probs, mut_probs + 4, mut_probs);
+    std::array<float, 4> mut_probs = {
+      params.p_crossover,
+      params.p_crossover + params.p_subtree_mutation,
+      params.p_crossover + params.p_subtree_mutation + params.p_hoist_mutation,
+      params.p_crossover + params.p_subtree_mutation + params.p_hoist_mutation + params.p_point_mutation
+    };
 
+    
+    // for (auto i = 0; i < n_progs; ++i) {
+    //   float prob = dist_U(h_gen);
+
+    //   if (prob < mut_probs[0]) {
+    //     h_nextprogs[i].mut_type = mutation_t::crossover;
+    //     n_tours++;
+    //   } else if (prob < mut_probs[1]) {
+    //     h_nextprogs[i].mut_type = mutation_t::subtree;
+    //   } else if (prob < mut_probs[2]) {
+    //     h_nextprogs[i].mut_type = mutation_t::hoist;
+    //   } else if (prob < mut_probs[3]) {
+    //     h_nextprogs[i].mut_type = mutation_t::point;
+    //   } else {
+    //     h_nextprogs[i].mut_type = mutation_t::reproduce;
+    //   }
+    // }
+
+    constexpr mutation_t mutation_types[5] = {
+      mutation_t::crossover,
+      mutation_t::subtree,
+      mutation_t::hoist,
+      mutation_t::point,
+      mutation_t::reproduce
+    };
+
+    // std::upper_bound() does a O(logn) binary search
     for (auto i = 0; i < n_progs; ++i) {
       float prob = dist_U(h_gen);
-
-      if (prob < mut_probs[0]) {
-        h_nextprogs[i].mut_type = mutation_t::crossover;
-        n_tours++;
-      } else if (prob < mut_probs[1]) {
-        h_nextprogs[i].mut_type = mutation_t::subtree;
-      } else if (prob < mut_probs[2]) {
-        h_nextprogs[i].mut_type = mutation_t::hoist;
-      } else if (prob < mut_probs[3]) {
-        h_nextprogs[i].mut_type = mutation_t::point;
-      } else {
-        h_nextprogs[i].mut_type = mutation_t::reproduce;
-      }
+      auto it = std::upper_bound(mut_probs.begin(), mut_probs.end(), prob);
+      int index = std::distance(mut_probs.begin(), it);
+      h_nextprogs[i].mut_type = mutation_types[index];
+      if (index == 0) n_tours++;
     }
 
     // Run tournaments
@@ -195,29 +219,39 @@ int param::max_programs() const {
 
 int param::criterion() const {
   // Returns 0 if a smaller value is preferred and 1 for the opposite
-  switch (this->metric) {
-  case metric_t::mse:
+  // switch (this->metric) {
+  // case metric_t::mse:
+  //   return 0;
+  // case metric_t::logloss:
+  //   return 0;
+  // case metric_t::mae:
+  //   return 0;
+  // case metric_t::rmse:
+  //   return 0;
+  // case metric_t::pearson:
+  //   return 1;
+  // case metric_t::spearman:
+  //   return 1;
+  // default:
+  //   return -1;
+  // }
+
+  if (this->metric == metric_t::mse || this->metric == metric_t::logloss || this->metric == metric_t::mae || this->metric == metric_t::rmse) {
     return 0;
-  case metric_t::logloss:
-    return 0;
-  case metric_t::mae:
-    return 0;
-  case metric_t::rmse:
-    return 0;
-  case metric_t::pearson:
+  } else if (this->metric == metric_t::pearson || this->metric == metric_t::spearman) {
     return 1;
-  case metric_t::spearman:
-    return 1;
-  default:
-    return -1;
   }
+  return -1;
 }
 
 std::string stringify(const program &prog) {
   std::string eqn = "( ";
   std::string delim = "";
-  std::stack<int> ar_stack;
-  ar_stack.push(0);
+  // std::stack<int> ar_stack;
+  // ar_stack.push(0);
+  std::vector<int> arity_remaining(prog.len, 0); // Store remaining arguments for each function node
+  int stack_top = 0; // Track the last active function needing arguments
+
 
   for (int i = 0; i < prog.len; ++i) {
     if (prog.nodes[i].is_terminal()) {
@@ -231,127 +265,152 @@ std::string stringify(const program &prog) {
         eqn += std::to_string(prog.nodes[i].u.val);
       }
 
-      int end_elem = ar_stack.top();
-      ar_stack.pop();
-      ar_stack.push(end_elem - 1);
-      while (ar_stack.top() == 0) {
-        ar_stack.pop();
+      // int end_elem = ar_stack.top();
+      // ar_stack.pop();
+      // ar_stack.push(end_elem - 1);
+      // while (ar_stack.top() == 0) {
+      //   ar_stack.pop();
+      //   eqn += ") ";
+      //   if (ar_stack.empty()) {
+      //     break;
+      //   }
+      //   end_elem = ar_stack.top();
+      //   ar_stack.pop();
+      //   ar_stack.push(end_elem - 1);
+      // }
+
+      while (stack_top >= 0 && --arity_remaining[stack_top] == 0) {
         eqn += ") ";
-        if (ar_stack.empty()) {
-          break;
-        }
-        end_elem = ar_stack.top();
-        ar_stack.pop();
-        ar_stack.push(end_elem - 1);
+        --stack_top;
       }
+
       delim = ", ";
     } else {
-      ar_stack.push(prog.nodes[i].arity());
+      // ar_stack.push(prog.nodes[i].arity());
+      arity_remaining[++stack_top] = prog.nodes[i].arity();
+      
       eqn += delim;
-      switch (prog.nodes[i].t) {
-      // binary operators
-      case node::type::add:
-        eqn += "add(";
-        break;
-      case node::type::atan2:
-        eqn += "atan2(";
-        break;
-      case node::type::div:
-        eqn += "div(";
-        break;
-      case node::type::fdim:
-        eqn += "fdim(";
-        break;
-      case node::type::max:
-        eqn += "max(";
-        break;
-      case node::type::min:
-        eqn += "min(";
-        break;
-      case node::type::mul:
-        eqn += "mult(";
-        break;
-      case node::type::pow:
-        eqn += "pow(";
-        break;
-      case node::type::sub:
-        eqn += "sub(";
-        break;
-      // unary operators
-      case node::type::abs:
-        eqn += "abs(";
-        break;
-      case node::type::acos:
-        eqn += "acos(";
-        break;
-      case node::type::acosh:
-        eqn += "acosh(";
-        break;
-      case node::type::asin:
-        eqn += "asin(";
-        break;
-      case node::type::asinh:
-        eqn += "asinh(";
-        break;
-      case node::type::atan:
-        eqn += "atan(";
-        break;
-      case node::type::atanh:
-        eqn += "atanh(";
-        break;
-      case node::type::cbrt:
-        eqn += "cbrt(";
-        break;
-      case node::type::cos:
-        eqn += "cos(";
-        break;
-      case node::type::cosh:
-        eqn += "cosh(";
-        break;
-      case node::type::cube:
-        eqn += "cube(";
-        break;
-      case node::type::exp:
-        eqn += "exp(";
-        break;
-      case node::type::inv:
-        eqn += "inv(";
-        break;
-      case node::type::log:
-        eqn += "log(";
-        break;
-      case node::type::neg:
-        eqn += "neg(";
-        break;
-      case node::type::rcbrt:
-        eqn += "rcbrt(";
-        break;
-      case node::type::rsqrt:
-        eqn += "rsqrt(";
-        break;
-      case node::type::sin:
-        eqn += "sin(";
-        break;
-      case node::type::sinh:
-        eqn += "sinh(";
-        break;
-      case node::type::sq:
-        eqn += "sq(";
-        break;
-      case node::type::sqrt:
-        eqn += "sqrt(";
-        break;
-      case node::type::tan:
-        eqn += "tan(";
-        break;
-      case node::type::tanh:
-        eqn += "tanh(";
-        break;
-      default:
-        break;
-      }
-      eqn += " ";
-      delim = "";
+      // switch (prog.nodes[i].t) {
+      // // binary operators
+      // case node::type::add:
+      //   eqn += "add(";
+      //   break;
+      // case node::type::atan2:
+      //   eqn += "atan2(";
+      //   break;
+      // case node::type::div:
+      //   eqn += "div(";
+      //   break;
+      // case node::type::fdim:
+      //   eqn += "fdim(";
+      //   break;
+      // case node::type::max:
+      //   eqn += "max(";
+      //   break;
+      // case node::type::min:
+      //   eqn += "min(";
+      //   break;
+      // case node::type::mul:
+      //   eqn += "mult(";
+      //   break;
+      // case node::type::pow:
+      //   eqn += "pow(";
+      //   break;
+      // case node::type::sub:
+      //   eqn += "sub(";
+      //   break;
+      // // unary operators
+      // case node::type::abs:
+      //   eqn += "abs(";
+      //   break;
+      // case node::type::acos:
+      //   eqn += "acos(";
+      //   break;
+      // case node::type::acosh:
+      //   eqn += "acosh(";
+      //   break;
+      // case node::type::asin:
+      //   eqn += "asin(";
+      //   break;
+      // case node::type::asinh:
+      //   eqn += "asinh(";
+      //   break;
+      // case node::type::atan:
+      //   eqn += "atan(";
+      //   break;
+      // case node::type::atanh:
+      //   eqn += "atanh(";
+      //   break;
+      // case node::type::cbrt:
+      //   eqn += "cbrt(";
+      //   break;
+      // case node::type::cos:
+      //   eqn += "cos(";
+      //   break;
+      // case node::type::cosh:
+      //   eqn += "cosh(";
+      //   break;
+      // case node::type::cube:
+      //   eqn += "cube(";
+      //   break;
+      // case node::type::exp:
+      //   eqn += "exp(";
+      //   break;
+      // case node::type::inv:
+      //   eqn += "inv(";
+      //   break;
+      // case node::type::log:
+      //   eqn += "log(";
+      //   break;
+      // case node::type::neg:
+      //   eqn += "neg(";
+      //   break;
+      // case node::type::rcbrt:
+      //   eqn += "rcbrt(";
+      //   break;
+      // case node::type::rsqrt:
+      //   eqn += "rsqrt(";
+      //   break;
+      // case node::type::sin:
+      //   eqn += "sin(";
+      //   break;
+      // case node::type::sinh:
+      //   eqn += "sinh(";
+      //   break;
+      // case node::type::sq:
+      //   eqn += "sq(";
+      //   break;
+      // case node::type::sqrt:
+      //   eqn += "sqrt(";
+      //   break;
+      // case node::type::tan:
+      //   eqn += "tan(";
+      //   break;
+      // case node::type::tanh:
+      //   eqn += "tanh(";
+      //   break;
+      // default:
+      //   break;
+      // }
+      // eqn += " ";
+      // delim = "";
+
+      static const std::unordered_map<node::type, std::string> type_map = {
+        {node::type::add, "add("}, {node::type::atan2, "atan2("}, {node::type::div, "div("},
+        {node::type::fdim, "fdim("}, {node::type::max, "max("}, {node::type::min, "min("},
+        {node::type::mul, "mult("}, {node::type::pow, "pow("}, {node::type::sub, "sub("},
+        {node::type::abs, "abs("}, {node::type::acos, "acos("}, {node::type::acosh, "acosh("},
+        {node::type::asin, "asin("}, {node::type::asinh, "asinh("}, {node::type::atan, "atan("},
+        {node::type::atanh, "atanh("}, {node::type::cbrt, "cbrt("}, {node::type::cos, "cos("},
+        {node::type::cosh, "cosh("}, {node::type::cube, "cube("}, {node::type::exp, "exp("},
+        {node::type::inv, "inv("}, {node::type::log, "log("}, {node::type::neg, "neg("},
+        {node::type::rcbrt, "rcbrt("}, {node::type::rsqrt, "rsqrt("}, {node::type::sin, "sin("},
+        {node::type::sinh, "sinh("}, {node::type::sq, "sq("}, {node::type::sqrt, "sqrt("},
+        {node::type::tan, "tan("}, {node::type::tanh, "tanh("}
+    };
+
+    eqn += type_map.at(prog.nodes[i].t) + " ";
+    delim = "";
     }
   }
 
