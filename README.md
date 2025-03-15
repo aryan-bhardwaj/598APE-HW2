@@ -20,6 +20,29 @@ This program assumes the following are installed on your machine:
 
 Running make builds a sample benchmarking binary(`genetic_benchmark`) which you will use for perf engineering. However, note that the symbolic regression routines exposed in `genetic.h` are general, and can be used as a sub-routine in any data science pipeline (pending a Cython wrapper to Python/Torch).
 
+In order to run benchmarking tests, run
+```bash
+hyperfine "COMMAND"
+```
+Make sure to include the quotation marks! For example, to benchmark the diabetes symbolic regression, you would run
+```bash
+hyperfine "./genetic_benchmark diabetes"
+```
+and you can do the same with the remaining datasets.
+
+## Important Commit Hashs
+The following list of commit hashes represent snapshots of our fundamental/major optimizations. 
+
+**Baseline code**: 9aa648664618c57fecbeb789fbb46dc2915458c2<br>
+**Removing stack**: 0cdcef07dacb11c41e2886588a46bb09921df415 <br>
+**Adding -O3 flag**: 78bd9f803a5a2afa8d0568c9c8950b75eaac1c41 <br>
+**OpenMP parallelization**: d19f2810fe931d443af482b931999f148b17d101 <br>
+**Removing InsertionSort**: 328e2b0e4196fd1f3e7af62d0f51814126047afa <br>
+
+---
+---
+
+
 Once compiled, one can run the benchmark code on the diabetes dataset as follows:
 ```bash
 ./genetic_benchmark diabetes
